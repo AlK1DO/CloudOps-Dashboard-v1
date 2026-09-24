@@ -20,6 +20,7 @@ import {
   Legend 
 } from 'recharts';
 import { useCloud } from '../context/CloudContext';
+import { useToast } from '../context/ToastContext';
 import { CostCard } from '../components/CostCard';
 
 const CHART_COLORS = ['#2563EB', '#16A34A', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B'];
@@ -31,21 +32,26 @@ export const Costs: React.FC = () => {
     removeCostItem, 
     services, 
     totalMonthlyCost, 
-    totalAnnualCost 
+    totalAnnualCost,
+    baseMonthlyCost,
+    costMultiplier,
+    activeRegionData,
   } = useCloud();
+  const { addToast } = useToast();
 
   // Estados del calculador
   const [selectedServiceId, setSelectedServiceId] = useState(services[0]?.id || 'ec2');
   const [quantity, setQuantity] = useState<number>(2);
-  const [estimatedHours, setEstimatedHours] = useState<number>(730); // 730 horas = 1 mes promedio
+  const [estimatedHours, setEstimatedHours] = useState<number>(730);
   const [successMessage, setSuccessMessage] = useState('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const selectedServiceObj = services.find(s => s.id === selectedServiceId) || services[0];
 
-  // Cálculo en vivo
+  // Cálculo en vivo con multiplicador de región
   const calculatedHourlyCost = selectedServiceObj ? selectedServiceObj.hourlyRate : 0;
-  const calculatedMonthly = Number((calculatedHourlyCost * quantity * estimatedHours).toFixed(2));
+  const calculatedMonthlyBase = Number((calculatedHourlyCost * quantity * estimatedHours).toFixed(2));
+  const calculatedMonthly = Number((calculatedMonthlyBase * costMultiplier).toFixed(2));
   const calculatedAnnual = Number((calculatedMonthly * 12).toFixed(2));
 
   const handleAddCost = (e: React.FormEvent) => {
@@ -61,6 +67,12 @@ export const Costs: React.FC = () => {
       monthlyCost: calculatedMonthly,
       annualCost: calculatedAnnual,
     });
+
+    addToast(
+      'success',
+      'Estimación agregada',
+      `${selectedServiceObj.name} — $${calculatedMonthly.toFixed(2)}/mes en ${activeRegionData?.regionCode}`
+    );
 
     setSuccessMessage(`Estimación para ${selectedServiceObj.name} añadida exitosamente.`);
     setTimeout(() => setSuccessMessage(''), 3500);
@@ -81,12 +93,47 @@ export const Costs: React.FC = () => {
     <div className="space-y-6">
       {/* Encabezado del Módulo */}
       <div className="card-base p-6 border-l-4 border-l-[#F59E0B]">
-        <h2 className="text-xl md:text-2xl font-bold text-[#1E293B]">
-          Costos y Estimación Económica Cloud
-        </h2>
-        <p className="text-sm text-[#64748B] mt-1 max-w-3xl">
-          Simule y calcule el gasto mensual y anual de los servicios de AWS según cantidad y horas de uso (Pay-as-you-go). Analice la distribución porcentual del presupuesto por categoría de servicio.
-        </p>
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-[#1E293B]">
+              Costos y Estimación Económica Cloud
+            </h2>
+            <p className="text-sm text-[#64748B] mt-1 max-w-3xl">
+              Simule y calcule el gasto mensual y anual de los servicios de AWS según cantidad y horas de uso (Pay-as-you-go). Los precios se ajustan automáticamente según la región activa seleccionada.
+            </p>
+          </div>
+          {/* Indicador de región y multiplicador */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold shrink-0 ${
+            costMultiplier === 1.0
+              ? 'bg-slate-50 border-[#E2E8F0] text-[#1E293B]'
+              : costMultiplier <= 1.2
+              ? 'bg-amber-50 border-amber-200 text-amber-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}>
+            <span className={`w-2 h-2 rounded-full ${
+              activeRegionData?.status === 'Operativo' ? 'bg-[#16A34A] animate-pulse' :
+              activeRegionData?.status === 'Mantenimiento' ? 'bg-[#F59E0B]' : 'bg-[#DC2626]'
+            }`} />
+            <span className="font-mono">{activeRegionData?.regionCode}</span>
+            <span>·</span>
+            <span className={costMultiplier === 1.0 ? 'text-[#16A34A]' : 'text-[#DC2626]'}>
+              ×{costMultiplier.toFixed(2)}
+            </span>
+            {costMultiplier !== 1.0 && <span className="text-[10px] opacity-70">vs us-east-1</span>}
+          </div>
+        </div>
+
+        {/* Aviso de ajuste de precios */}
+        {costMultiplier !== 1.0 && (
+          <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2 text-xs text-amber-800">
+            <DollarSign className="w-4 h-4 shrink-0 mt-0.5 text-[#F59E0B]" />
+            <span>
+              Los precios en <strong>{activeRegionData?.location}</strong> ({activeRegionData?.regionCode}) son aproximadamente{' '}
+              <strong>{((costMultiplier - 1) * 100).toFixed(0)}% más altos</strong> que en us-east-1 (N. Virginia).
+              Precio base: <strong>${baseMonthlyCost.toFixed(2)}/mes</strong> → Ajustado: <strong>${totalMonthlyCost.toFixed(2)}/mes</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Tarjetas de Resumen Financiero */}
@@ -199,10 +246,19 @@ export const Costs: React.FC = () => {
                     ${calculatedHourlyCost.toFixed(4)} USD/h
                   </span>
                 </div>
+                {costMultiplier !== 1.0 && (
+                  <div className="flex justify-between items-center text-amber-700">
+                    <span>Multiplicador región ({activeRegionData?.regionCode}):</span>
+                    <span className="font-semibold">×{costMultiplier.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center">
                   <span className="text-[#64748B]">5. Costo Mensual Calculado:</span>
                   <span className="font-bold text-[#1E293B]">
                     ${calculatedMonthly.toFixed(2)} USD/mes
+                    {costMultiplier !== 1.0 && (
+                      <span className="ml-1 text-[10px] text-amber-600">(base ${calculatedMonthlyBase.toFixed(2)})</span>
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pt-1 border-t border-amber-200/60">

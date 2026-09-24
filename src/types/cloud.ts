@@ -56,6 +56,7 @@ export interface GlobalRegion {
   deployedServices: string[];
   status: RegionHealthStatus;
   latencyMs: number;
+  costMultiplier: number; // multiplicador de precio relativo a us-east-1 (base = 1.0)
 }
 
 export type SecurityStatusLevel = 'correcto' | 'revision' | 'problema';

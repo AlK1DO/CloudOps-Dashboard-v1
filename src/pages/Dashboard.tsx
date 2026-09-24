@@ -7,7 +7,7 @@ import {
   Network, 
   Layers, 
   ArrowRight, 
-  TrendingUp
+  TrendingUp,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { 
@@ -29,16 +29,32 @@ export const Dashboard: React.FC = () => {
     costItems, 
     totalMonthlyCost, 
     totalAnnualCost, 
-    services, 
-    selectedRegion 
+    baseMonthlyCost,
+    costMultiplier,
+    services,
+    selectedRegion,
+    activeRegionData,
   } = useCloud();
 
   const activeServicesCount = services.filter(s => s.status === 'Activo').length;
+  const isPrimaryActive = activeRegionData?.regionCode === 'us-east-1';
+
+  const regionBadgeType = activeRegionData?.status === 'Operativo'
+    ? 'success'
+    : activeRegionData?.status === 'Mantenimiento'
+    ? 'warning'
+    : 'danger';
+
+  const regionBadgeText = activeRegionData?.status === 'Operativo'
+    ? (isPrimaryActive ? 'Principal · Activa' : 'Activa')
+    : activeRegionData?.status === 'Mantenimiento'
+    ? 'En mantenimiento'
+    : 'Degradada';
 
   const chartData = costItems.map(item => ({
     name: item.serviceId.toUpperCase(),
     fullName: item.serviceName,
-    costo: Number(item.monthlyCost.toFixed(2)),
+    costo: Number((item.monthlyCost * costMultiplier).toFixed(2)),
   }));
 
   const correctSecurity = SECURITY_PILLARS.filter(p => p.status === 'correcto').length;
@@ -57,6 +73,27 @@ export const Dashboard: React.FC = () => {
             <p className="text-slate-300 text-sm mt-1 max-w-2xl">
               Panel unificado para planificación, costos, infraestructura global, seguridad y arquitectura de red basado en los fundamentos de AWS.
             </p>
+            {/* Región activa en el banner */}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                activeRegionData?.status === 'Operativo'
+                  ? 'bg-emerald-900/40 border-emerald-500/50 text-emerald-300'
+                  : activeRegionData?.status === 'Mantenimiento'
+                  ? 'bg-amber-900/40 border-amber-500/50 text-amber-300'
+                  : 'bg-rose-900/40 border-rose-500/50 text-rose-300'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  activeRegionData?.status === 'Operativo' ? 'bg-emerald-400 animate-pulse' :
+                  activeRegionData?.status === 'Mantenimiento' ? 'bg-amber-400' : 'bg-rose-400'
+                }`} />
+                Región activa: <strong>{activeRegionData?.regionCode}</strong> — {activeRegionData?.location}
+              </span>
+              {!isPrimaryActive && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-900/40 border border-blue-500/50 text-blue-300">
+                  Principal: <strong>us-east-1</strong> (N. Virginia)
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-3 self-start md:self-auto">
             <Link
@@ -70,12 +107,12 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Tarjetas de Indicadores (KPIs obligatorios de la Sección 9) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Tarjetas de Indicadores — 6 KPIs en dos filas responsivas */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           title="Servicios Utilizados"
-          value={`${activeServicesCount} de ${services.length}`}
-          subtitle="EC2, S3, RDS, IAM, VPC, Route53, CF"
+          value={`${activeServicesCount} / ${services.length}`}
+          subtitle="EC2, S3, RDS, IAM, VPC, Route 53, CF"
           icon={Layers}
           badgeText="100% Cobertura"
           badgeType="success"
@@ -84,22 +121,48 @@ export const Dashboard: React.FC = () => {
         />
 
         <StatCard
-          title="Región Seleccionada"
-          value={selectedRegion.split(' ')[0]}
-          subtitle={selectedRegion.includes('(') ? selectedRegion.split('(')[1].replace(')', '') : 'Zona Primaria'}
+          title={isPrimaryActive ? 'Región Principal' : 'Región Activa'}
+          value={activeRegionData?.regionCode ?? selectedRegion.split(' ')[0]}
+          subtitle={`${activeRegionData?.location ?? ''} · ${activeRegionData?.availabilityZones ?? '?'} AZs · ${activeRegionData?.latencyMs ?? '?'} ms`}
           icon={Globe}
-          badgeText="Principal"
-          badgeType="info"
-          iconBgColor="bg-slate-100"
-          iconColor="text-[#0F172A]"
+          badgeText={regionBadgeText}
+          badgeType={regionBadgeType}
+          iconBgColor={activeRegionData?.status === 'Operativo' ? 'bg-slate-100' : activeRegionData?.status === 'Mantenimiento' ? 'bg-amber-50' : 'bg-rose-50'}
+          iconColor={activeRegionData?.status === 'Operativo' ? 'text-[#0F172A]' : activeRegionData?.status === 'Mantenimiento' ? 'text-[#F59E0B]' : 'text-[#DC2626]'}
+        />
+
+        <StatCard
+          title="Recursos en Región"
+          value={`${activeRegionData?.deployedServices.length ?? activeServicesCount} Servicios`}
+          subtitle={activeRegionData ? activeRegionData.deployedServices.slice(0, 3).join(' · ') + (activeRegionData.deployedServices.length > 3 ? '…' : '') : 'Computación · BD · Red · IAM'}
+          icon={Server}
+          badgeText={activeRegionData?.regionCode ?? 'Multi-AZ'}
+          badgeType="success"
+          iconBgColor="bg-emerald-50"
+          iconColor="text-[#16A34A]"
         />
 
         <StatCard
           title="Costo Mensual Estimado"
           value={`$${totalMonthlyCost.toFixed(2)}`}
-          subtitle={`$${totalAnnualCost.toFixed(2)} proyectado al año`}
+          subtitle={costMultiplier !== 1.0
+            ? `Base $${baseMonthlyCost.toFixed(2)} × ${costMultiplier}x (${activeRegionData?.regionCode})`
+            : `USD / mes — modelo Pay-as-you-go`}
           icon={DollarSign}
-          badgeText="Actualizado"
+          badgeText={costMultiplier !== 1.0 ? `×${costMultiplier} región` : 'Mensual'}
+          badgeType="warning"
+          iconBgColor="bg-amber-50"
+          iconColor="text-[#F59E0B]"
+        />
+
+        <StatCard
+          title="Costo Anual Proyectado"
+          value={`$${totalAnnualCost.toFixed(2)}`}
+          subtitle={costMultiplier !== 1.0
+            ? `Ajustado por región ${activeRegionData?.regionCode} (×${costMultiplier})`
+            : `${costItems.length} servicios × 12 meses`}
+          icon={TrendingUp}
+          badgeText="Anual TCO"
           badgeType="warning"
           iconBgColor="bg-amber-50"
           iconColor="text-[#F59E0B]"
@@ -107,55 +170,47 @@ export const Dashboard: React.FC = () => {
 
         <StatCard
           title="Estado de Seguridad"
-          value={`${correctSecurity}/${SECURITY_PILLARS.length} OK`}
-          subtitle={`${reviewSecurity} en revisión preventiva`}
+          value={`${correctSecurity} / ${SECURITY_PILLARS.length} OK`}
+          subtitle={`${reviewSecurity} en revisión · ${problemSecurity} problemas`}
           icon={ShieldCheck}
-          badgeText="AWS Well-Arch."
+          badgeText="Well-Architected"
           badgeType="success"
           iconBgColor="bg-emerald-50"
           iconColor="text-[#16A34A]"
         />
       </div>
 
-      {/* Segunda fila de métricas: Estado de la Arquitectura y Recursos Cloud */}
+      {/* Accesos rápidos — Estado arquitectura y catálogo */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card-base p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center border border-blue-100">
-              <Network className="w-6 h-6" />
+        <div className="card-base p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center border border-blue-100 shrink-0">
+              <Network className="w-5 h-5" />
             </div>
             <div>
               <p className="text-xs font-semibold uppercase text-[#64748B]">Estado de la Arquitectura</p>
-              <h4 className="text-base font-bold text-[#1E293B] mt-0.5">Alta Disponibilidad (Multi-AZ)</h4>
-              <p className="text-xs text-[#64748B] mt-0.5">Internet ➔ Route 53 ➔ CloudFront ➔ VPC ➔ EC2/RDS</p>
+              <p className="text-sm font-bold text-[#1E293B]">Alta Disponibilidad (Multi-AZ)</p>
+              <p className="text-xs text-[#64748B]">Internet → Route 53 → CloudFront → VPC → EC2/RDS</p>
             </div>
           </div>
-          <Link 
-            to="/network"
-            className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1 shrink-0 ml-2"
-          >
-            Ver flujo
-            <ArrowRight className="w-3.5 h-3.5" />
+          <Link to="/network" className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1 shrink-0 ml-2">
+            Ver flujo <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        <div className="card-base p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-[#16A34A] flex items-center justify-center border border-emerald-100">
-              <Server className="w-6 h-6" />
+        <div className="card-base p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 text-[#8B5CF6] flex items-center justify-center border border-violet-100 shrink-0">
+              <Layers className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase text-[#64748B]">Recursos Cloud Activos</p>
-              <h4 className="text-base font-bold text-[#1E293B] mt-0.5">7 Componentes Nucleares</h4>
-              <p className="text-xs text-[#64748B] mt-0.5">Computación, Almacenamiento, Redes, BD y Seguridad</p>
+              <p className="text-xs font-semibold uppercase text-[#64748B]">Catálogo de Servicios AWS</p>
+              <p className="text-sm font-bold text-[#1E293B]">EC2, S3, RDS, IAM, VPC, Route 53, CloudFront</p>
+              <p className="text-xs text-[#64748B]">5 categorías · tarifa estimada por servicio</p>
             </div>
           </div>
-          <Link 
-            to="/services"
-            className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1 shrink-0 ml-2"
-          >
-            Ver catálogo
-            <ArrowRight className="w-3.5 h-3.5" />
+          <Link to="/services" className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1 shrink-0 ml-2">
+            Ver catálogo <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </div>

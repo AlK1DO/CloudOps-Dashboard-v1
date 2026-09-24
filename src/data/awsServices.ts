@@ -82,7 +82,8 @@ export const GLOBAL_REGIONS: GlobalRegion[] = [
     availabilityZones: 6,
     deployedServices: ['Amazon EC2', 'Amazon S3', 'Amazon RDS', 'Amazon VPC', 'Route 53', 'CloudFront'],
     status: 'Operativo',
-    latencyMs: 78
+    latencyMs: 78,
+    costMultiplier: 1.0, // base — la más económica
   },
   {
     id: 'us-west-2',
@@ -92,7 +93,8 @@ export const GLOBAL_REGIONS: GlobalRegion[] = [
     availabilityZones: 4,
     deployedServices: ['Amazon EC2', 'Amazon S3', 'Amazon RDS', 'Amazon VPC'],
     status: 'Operativo',
-    latencyMs: 95
+    latencyMs: 95,
+    costMultiplier: 1.0, // igual a us-east-1
   },
   {
     id: 'sa-east-1',
@@ -102,7 +104,8 @@ export const GLOBAL_REGIONS: GlobalRegion[] = [
     availabilityZones: 3,
     deployedServices: ['Amazon EC2', 'Amazon S3', 'Amazon RDS', 'Amazon VPC'],
     status: 'Operativo',
-    latencyMs: 110
+    latencyMs: 110,
+    costMultiplier: 1.50, // ~50% más caro por impuestos y logística
   },
   {
     id: 'eu-west-1',
@@ -111,8 +114,9 @@ export const GLOBAL_REGIONS: GlobalRegion[] = [
     country: 'Europa',
     availabilityZones: 3,
     deployedServices: ['Amazon EC2', 'Amazon S3', 'Amazon RDS'],
-    status: 'Operativo',
-    latencyMs: 140
+    status: 'Mantenimiento',
+    latencyMs: 140,
+    costMultiplier: 1.18, // ~18% más caro que us-east-1
   }
 ];
 

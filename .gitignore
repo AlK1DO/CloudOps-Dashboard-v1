@@ -1,6 +1,26 @@
-@"
+# Dependencias
 node_modules/
+
+# Build
 dist/
+dist-ssr/
+
+# Variables de entorno
 .env
 .env.local
-"@ | Set-Content .gitignore
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# TypeScript cache
+tsconfig.tsbuildinfo
