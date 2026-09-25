@@ -10,7 +10,7 @@ interface HeaderProps {
 }
 
 const routeTitles: Record<string, { title: string; subtitle: string }> = {
-  '/dashboard':      { title: 'Dashboard General',          subtitle: 'Resumen ejecutivo y estado de la solución Cloud' },
+  '/dashboard':      { title: 'Dashboard',          subtitle: 'Resumen ejecutivo y estado de la solución Cloud' },
   '/planning':       { title: 'Planificación Cloud',         subtitle: 'Registro y análisis de propuestas de arquitectura' },
   '/costs':          { title: 'Costos y Economía Cloud',     subtitle: 'Estimación y desglose presupuestario de recursos' },
   '/infrastructure': { title: 'Infraestructura Global',      subtitle: 'Regiones, zonas de disponibilidad y estado operacional' },
