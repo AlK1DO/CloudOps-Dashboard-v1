@@ -112,10 +112,10 @@ export const CloudProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setProposals(prev => [proposal, ...prev]);
 
-    // Conectar inmediatamente con Costos y Economía
-    if (proposal.selectedServices && proposal.selectedServices.length > 0) {
+    // Conectar inmediatamente con Costos y Economía (Deshabilitado para no sobrescribir)
+    /* if (proposal.selectedServices && proposal.selectedServices.length > 0) {
       syncCostItemsWithServices(proposal.selectedServices);
-    }
+    } */
   };
 
   const removeProposal = (id: string) => {

@@ -53,14 +53,7 @@ export const Planning: React.FC = () => {
   // ── Confirmación de eliminación: guarda el ID pendiente ──────────────────
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // Sincronizar con Costos al inicio
-  useEffect(() => {
-    if (selectedServices.length > 0) {
-      syncCostItemsWithServices(selectedServices);
-    }
-  }, []);
-
-  // ── Sincronizar región del formulario con la global ───────────────────────
+  // Sincronizar región del formulario con la global ───────────────────────
   useEffect(() => {
     setSelectedRegion(globalRegion);
   }, [globalRegion]);
@@ -83,8 +76,6 @@ export const Planning: React.FC = () => {
       setSelectedServices(next);
       setServicesError('');
     }
-    // Conectar en tiempo real con Costos y Economía
-    syncCostItemsWithServices(next);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
