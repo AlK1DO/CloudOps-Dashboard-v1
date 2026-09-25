@@ -2,9 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ══════════════════════════════════════════
-   Variables de tema
-   ══════════════════════════════════════════ */
+
 :root {
   --bg-main:   #F8FAFC;
   --bg-card:   #FFFFFF;
@@ -39,9 +37,6 @@
   --shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.5);
 }
 
-/* ══════════════════════════════════════════
-   Base global
-   ══════════════════════════════════════════ */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
   html { transition: color-scheme 0.2s ease; }
@@ -67,9 +62,6 @@
   .dark ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
 }
 
-/* ══════════════════════════════════════════
-   .card-base
-   ══════════════════════════════════════════ */
 @layer components {
   .card-base {
     background-color: var(--bg-card);
@@ -80,20 +72,16 @@
   }
   .card-base:hover { box-shadow: var(--shadow-hover); }
 
-  /* ─── Labels de formulario en dark ─── */
   .dark label { color: var(--text-primary) !important; }
 
-  /* ─── Textos en tarjetas de propuestas ─── */
   .dark .text-\[\#1E293B\] { color: var(--text-primary)   !important; }
   .dark .text-\[\#64748B\] { color: var(--text-secondary) !important; }
 
-  /* ─── Fondos neutros de slate SOLO (no tocar emerald/amber/rose/blue) ─── */
   .dark .bg-white     { background-color: var(--bg-card)   !important; }
   .dark .bg-slate-50  { background-color: var(--bg-subtle) !important; }
   .dark .bg-slate-100 { background-color: var(--bg-muted)  !important; }
   .dark .bg-slate-200 { background-color: var(--bg-muted)  !important; }
 
-  /* ─── Textos neutros slate (no tocar colores de acento) ─── */
   .dark .text-\[\#1E293B\] { color: var(--text-primary)   !important; }
   .dark .text-\[\#64748B\] { color: var(--text-secondary) !important; }
   .dark .text-slate-900    { color: var(--text-primary)   !important; }
@@ -101,16 +89,13 @@
   .dark .text-slate-700    { color: var(--text-secondary) !important; }
   .dark .text-slate-600    { color: var(--text-secondary) !important; }
 
-  /* ─── Bordes neutros slate ─── */
   .dark .border-\[\#E2E8F0\] { border-color: var(--border) !important; }
   .dark .border-slate-200    { border-color: var(--border) !important; }
   .dark .border-slate-300    { border-color: var(--border-strong) !important; }
 
-  /* ─── Dividores ─── */
   .dark .divide-\[\#E2E8F0\] > * + * { border-color: var(--border) !important; }
   .dark .divide-slate-200    > * + * { border-color: var(--border) !important; }
 
-  /* ─── Inputs y selects ─── */
   .dark input,
   .dark select,
   .dark textarea {
@@ -125,12 +110,10 @@
     outline: none;
   }
 
-  /* ─── Tablas ─── */
   .dark thead { background-color: var(--bg-subtle) !important; }
   .dark tfoot { background-color: var(--bg-subtle) !important; }
   .dark tbody tr:hover { background-color: rgba(51,65,85,0.5) !important; }
 
-  /* ─── Fondos de color semáforo: ajustar para dark sin tocar texto ─── */
   .dark .bg-emerald-50,
   .dark .bg-emerald-50\/40  { background-color: rgba(16,163,74,0.12)  !important; }
   .dark .bg-amber-50,
@@ -143,14 +126,12 @@
   .dark .bg-blue-50\/60     { background-color: rgba(37,99,235,0.12)  !important; }
   .dark .bg-violet-50       { background-color: rgba(139,92,246,0.12) !important; }
 
-  /* ─── Bordes de color semáforo ─── */
   .dark .border-emerald-200 { border-color: rgba(16,163,74,0.35)   !important; }
   .dark .border-amber-200   { border-color: rgba(245,158,11,0.35)  !important; }
   .dark .border-rose-200    { border-color: rgba(220,38,38,0.35)   !important; }
   .dark .border-blue-100    { border-color: rgba(37,99,235,0.25)   !important; }
   .dark .border-blue-200    { border-color: rgba(37,99,235,0.35)   !important; }
 
-  /* ─── Textos sobre fondos de color: asegurar contraste en dark ─── */
   .dark .text-emerald-800 { color: #86efac !important; }
   .dark .text-amber-800   { color: #fde68a !important; }
   .dark .text-rose-800    { color: #fca5a5 !important; }

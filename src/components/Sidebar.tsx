@@ -9,7 +9,8 @@ import {
   Network, 
   Layers, 
   Cloud,
-  X
+  X,
+  Compass
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const navItems = [
   { name: 'Seguridad e IAM', path: '/security', icon: ShieldCheck },
   { name: 'Arquitectura de Red', path: '/network', icon: Network },
   { name: 'Servicios AWS', path: '/services', icon: Layers },
+  { name: 'Auditorio', path: '/auditorio', icon: Compass },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {

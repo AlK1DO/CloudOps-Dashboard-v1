@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Globe, ShieldCheck, User, ChevronDown, CheckCircle2, AlertTriangle, Clock, Sun, Moon } from 'lucide-react';
+import { Menu, Globe, ShieldCheck, User, ChevronDown, CheckCircle2, AlertTriangle, Clock, Sun, Moon, Users } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useCloud } from '../context/CloudContext';
 import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
+import { useClient } from '../context/ClientContext';
 
 interface HeaderProps {
   onToggleSidebar: () => void;
@@ -17,6 +18,7 @@ const routeTitles: Record<string, { title: string; subtitle: string }> = {
   '/security':       { title: 'Seguridad y Cumplimiento',    subtitle: 'Modelo de responsabilidad compartida, IAM y protección de datos' },
   '/network':        { title: 'Arquitectura de Red',         subtitle: 'Flujo perimetral, enrutamiento VPC y recursos internos' },
   '/services':       { title: 'Catálogo de Servicios AWS',   subtitle: 'Componentes principales y especificaciones técnicas' },
+  '/auditorio':      { title: 'Auditorio & Monitoreo',       subtitle: 'Resumen ejecutivo, geografía y mapa en vivo, y bitácora de eventos' },
 };
 
 const PRIMARY_REGION_ID = 'us-east-1';
@@ -26,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { regions, selectedRegion, setSelectedRegion } = useCloud();
   const { addToast }    = useToast();
   const { isDark, toggleTheme } = useTheme();
+  const { activeClient, executionLocation, setShowClientModal } = useClient();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -201,6 +204,17 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             </div>
           )}
         </div>
+
+        {/* ── Gestión de Clientes & Consultas ── */}
+        <button
+          onClick={() => setShowClientModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900"
+          title="Gestión de Clientes y Generación de Consultas"
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span className="hidden md:inline max-w-[110px] truncate">{activeClient ? activeClient.name : 'Clientes'}</span>
+          <span className="text-[10px] opacity-75 font-normal hidden lg:inline">({executionLocation.district})</span>
+        </button>
 
         {/* Toggle modo oscuro */}
         <button

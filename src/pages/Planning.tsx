@@ -31,6 +31,7 @@ export const Planning: React.FC = () => {
     selectedRegion: globalRegion,
     activeRegionData,
     costMultiplier,
+    syncCostItemsWithServices,
   } = useCloud();
   const { addToast } = useToast();
 
@@ -52,6 +53,13 @@ export const Planning: React.FC = () => {
   // ── Confirmación de eliminación: guarda el ID pendiente ──────────────────
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  // Sincronizar con Costos al inicio
+  useEffect(() => {
+    if (selectedServices.length > 0) {
+      syncCostItemsWithServices(selectedServices);
+    }
+  }, []);
+
   // ── Sincronizar región del formulario con la global ───────────────────────
   useEffect(() => {
     setSelectedRegion(globalRegion);
@@ -65,14 +73,18 @@ export const Planning: React.FC = () => {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleService = (serviceName: string) => {
+    let next: string[];
     if (selectedServices.includes(serviceName)) {
-      const next = selectedServices.filter(s => s !== serviceName);
+      next = selectedServices.filter(s => s !== serviceName);
       setSelectedServices(next);
       if (next.length === 0) setServicesError('Debe seleccionar al menos un servicio Cloud.');
     } else {
-      setSelectedServices([...selectedServices, serviceName]);
+      next = [...selectedServices, serviceName];
+      setSelectedServices(next);
       setServicesError('');
     }
+    // Conectar en tiempo real con Costos y Economía
+    syncCostItemsWithServices(next);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
