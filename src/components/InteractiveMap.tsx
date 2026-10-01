@@ -145,61 +145,50 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-[450px] rounded-2xl overflow-hidden border shadow-inner" style={{ borderColor: 'var(--border)' }}>
-      {/* Contenedor Leaflet */}
-      <div ref={mapContainerRef} className="w-full h-full z-0" />
-
-      {/* Tarjeta de Telemetría en Tiempo Real */}
-      <div 
-        className="absolute top-4 left-4 z-[400] card-base p-3.5 shadow-xl backdrop-blur-md bg-white/95 dark:bg-slate-900/95 border max-w-xs transition-all"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-col gap-3">
+      <section className="card-base order-2 p-4 border" style={{ borderColor: 'var(--border)' }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+            <Radio className="w-4 h-4 text-emerald-500 animate-pulse" />
+            <h4 className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">
               Ubicación en Tiempo Real
-            </span>
+            </h4>
           </div>
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 font-semibold">
             En vivo
           </span>
         </div>
-
-        <div className="mt-2">
-          <p className="text-lg font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            {location.district}
-          </p>
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Región: <span className="font-semibold text-blue-600 dark:text-blue-400">{location.region}</span>
-          </p>
-        </div>
-
-        <div className="mt-2.5 pt-2 border-t space-y-1 text-[11px]" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
-          <div className="flex justify-between font-mono">
-            <span>Coordenadas:</span>
-            <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div>
+            <span className="block text-[10px] font-semibold uppercase text-slate-400">Distrito · Región</span>
+            <p className="mt-1 font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {location.district} · {location.region}
+            </p>
+          </div>
+          <div>
+            <span className="block text-[10px] font-semibold uppercase text-slate-400">Coordenadas</span>
+            <p className="mt-1 font-mono font-semibold" style={{ color: 'var(--text-primary)' }}>
               {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
-            </span>
+            </p>
           </div>
-          <div className="flex justify-between">
-            <span>Fuente de datos:</span>
-            <span className="font-medium text-slate-600 dark:text-slate-300">
-              {location.source === 'gps' ? '🛰️ Satélite GPS' : '🌐 Red Directa'}
-            </span>
+          <div>
+            <span className="block text-[10px] font-semibold uppercase text-slate-400">Fuente</span>
+            <p className="mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
+              {location.source === 'gps' ? 'GPS del navegador' : 'Red / ISP'}
+            </p>
           </div>
-          {consultations.length > 0 ? (
-            <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
-              <span>Consultas reales:</span>
-              <span>{consultations.length} pines en mapa</span>
-            </div>
-          ) : (
-            <div className="text-[10px] text-slate-400 italic pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
-              Sin consultas aún. Genera una consulta para fijar un pin real.
-            </div>
-          )}
+          <div>
+            <span className="block text-[10px] font-semibold uppercase text-slate-400">Consultas en mapa</span>
+            <p className="mt-1 font-medium" style={{ color: consultations.length > 0 ? '#059669' : 'var(--text-secondary)' }}>
+              {consultations.length > 0 ? `${consultations.length} pines` : 'Sin consultas registradas'}
+            </p>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <div className="relative order-1 w-full h-[450px] rounded-2xl overflow-hidden border shadow-inner" style={{ borderColor: 'var(--border)' }}>
+      {/* Contenedor Leaflet */}
+      <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* Botón flotante para recentrar en tiempo real */}
       <button
@@ -211,6 +200,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         <Crosshair className="w-4 h-4 text-blue-600" />
         <span>Recentrar</span>
       </button>
+      </div>
     </div>
   );
 };

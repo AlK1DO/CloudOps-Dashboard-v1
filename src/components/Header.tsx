@@ -64,11 +64,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
   return (
     <header
-      className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 md:px-8 border-b shadow-sm transition-colors"
+      className="sticky top-0 z-30 flex items-center justify-between gap-3 h-16 px-4 md:px-6 xl:px-8 border-b shadow-sm transition-colors"
       style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
     >
       {/* Título */}
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           onClick={onToggleSidebar}
           className="p-2 -ml-2 rounded-lg lg:hidden transition-colors"
@@ -77,8 +77,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div>
-          <h1 className="text-lg md:text-xl font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate whitespace-nowrap text-lg md:text-xl font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
             {currentInfo.title}
           </h1>
           <p className="text-xs hidden sm:block" style={{ color: 'var(--text-secondary)' }}>
@@ -88,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
       </div>
 
       {/* Acciones derechas */}
-      <div className="flex items-center gap-2 md:gap-3">
+      <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
 
         {/* ── Selector de región ── */}
         <div className="relative hidden sm:block" ref={dropdownRef}>
@@ -100,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
             <Globe className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
             {activeRegion && statusDot(activeRegion.status)}
             <span className="font-mono">{activeRegion?.regionCode ?? selectedRegion.split(' ')[0]}</span>
-            <span className="hidden md:inline" style={{ color: 'var(--text-secondary)' }}>
+            <span className="hidden xl:inline" style={{ color: 'var(--text-secondary)' }}>
               ({activeRegion?.location ?? 'N. Virginia'})
             </span>
             <ChevronDown className={`w-3.5 h-3.5 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--text-secondary)' }} />
@@ -213,7 +213,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         >
           <Users className="w-3.5 h-3.5" />
           <span className="hidden md:inline max-w-[110px] truncate">{activeClient ? activeClient.name : 'Clientes'}</span>
-          <span className="text-[10px] opacity-75 font-normal hidden lg:inline">({executionLocation.district})</span>
+          <span className="text-[10px] opacity-75 font-normal hidden 2xl:inline">({executionLocation.district})</span>
         </button>
 
         {/* Toggle modo oscuro */}
@@ -245,7 +245,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           <div className="w-8 h-8 rounded-full bg-blue-100 text-[#2563EB] flex items-center justify-center text-xs border border-blue-200">
             <User className="w-4 h-4" />
           </div>
-          <div className="hidden md:block text-left">
+          <div className="hidden xl:block text-left">
             <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>Arquitecto Cloud</div>
             <div className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Admin IAM</div>
           </div>
