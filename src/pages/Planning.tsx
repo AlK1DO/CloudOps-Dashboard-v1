@@ -18,7 +18,8 @@ import {
   Trash2,
   AlertOctagon,
 } from 'lucide-react';
-import { useCloud } from '../context/CloudContext';
+import { useCloud, createCostItemsFromServices } from '../context/CloudContext';
+import { useClient } from '../context/ClientContext';
 import { useToast } from '../context/ToastContext';
 
 export const Planning: React.FC = () => {
@@ -33,6 +34,7 @@ export const Planning: React.FC = () => {
     costMultiplier,
     syncCostItemsWithServices,
   } = useCloud();
+  const { activeClient, generateConsultation } = useClient();
   const { addToast } = useToast();
 
   // ── Estado del formulario ─────────────────────────────────────────────────
@@ -42,9 +44,7 @@ export const Planning: React.FC = () => {
   const [selectedRegion, setSelectedRegion]     = useState(globalRegion);
   const [estimatedUsers, setEstimatedUsers]     = useState<number | string>(10000);
   const [availabilityLevel, setAvailabilityLevel] = useState('99.95% (Alta Disponibilidad Multi-AZ)');
-  const [selectedServices, setSelectedServices] = useState<string[]>([
-    'Amazon EC2', 'Amazon S3', 'Amazon RDS', 'Amazon VPC',
-  ]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [migrationGoal, setMigrationGoal]       = useState('');
   const [servicesError, setServicesError]       = useState('');
   const [formSuccess, setFormSuccess]           = useState(false);
@@ -63,6 +63,42 @@ export const Planning: React.FC = () => {
   const isPrimaryRegion   = formRegionData?.regionCode === 'us-east-1';
   const hasRegionWarning  = formRegionData?.status !== 'Operativo';
   const isNonPrimary      = !isPrimaryRegion;
+
+  // ── Generador inteligente de Descripción y Objetivo según el Nombre de la Solución ──
+  const generateAutoTexts = (name: string, appType: string) => {
+    if (!name.trim()) return { autoDesc: '', autoGoal: '' };
+    const clean = name.trim();
+    const low = clean.toLowerCase();
+
+    let autoDesc = `Arquitectura Cloud integral de alta disponibilidad y rendimiento diseñada para soportar y optimizar ${clean}, con cómputo elástico, almacenamiento duradero y seguridad perimetral.`;
+    let autoGoal = `Modernizar la infraestructura tecnológica de ${clean} en AWS, garantizando continuidad operativa con SLA de 99.95%, alta escalabilidad y optimización del costo mensual.`;
+
+    if (low.includes('erp') || low.includes('gestion') || low.includes('contab') || low.includes('admin') || low.includes('sap')) {
+      autoDesc = `Plataforma ERP centralizada en AWS para ${clean}, diseñada para garantizar operaciones ininterrumpidas, procesamiento transaccional seguro y persistencia de datos en bases relacionales Multi-AZ.`;
+      autoGoal = `Migrar los sistemas de gestión empresarial de ${clean} a la nube para consolidar operaciones, garantizar copias de seguridad continuas y proteger información sensible mediante cifrado y VPC.`;
+    } else if (low.includes('e-commerce') || low.includes('tienda') || low.includes('shop') || low.includes('venta') || low.includes('retail') || low.includes('comercio')) {
+      autoDesc = `Infraestructura de comercio electrónico de alta demanda para ${clean}, con aceleración perimetral mediante Amazon CloudFront, almacenamiento de catálogo en S3 y base de datos relacional para picos de ventas.`;
+      autoGoal = `Desplegar la tienda virtual de ${clean} con capacidad de autoescalado frente a campañas comerciales masivas, reduciendo la latencia para los clientes y asegurando un checkout de alta disponibilidad.`;
+    } else if (low.includes('api') || low.includes('microservicio') || low.includes('backend') || low.includes('servici')) {
+      autoDesc = `Ecosistema de microservicios y APIs distribuidas para ${clean}, estructuradas en subredes privadas aisladas con balanceo de carga, alta tasa de peticiones y observabilidad continua.`;
+      autoGoal = `Modernizar y desacoplar los servicios de backend de ${clean} en AWS, reduciendo tiempos de despliegue, optimizando el consumo de cómputo y aislando ambientes productivos.`;
+    } else if (low.includes('portal') || low.includes('web') || low.includes('app') || low.includes('plataforma') || low.includes('sitio')) {
+      autoDesc = `Portal web corporativo de alta escalabilidad para ${clean} (${appType}), con distribución perimetral global, backend en instancias elásticas y base de datos relacional protegida en subred privada.`;
+      autoGoal = `Garantizar la disponibilidad 24/7 y la velocidad de carga de ${clean}, ofreciendo a los usuarios una experiencia fluida con certificación SSL/TLS y respaldo automático de datos.`;
+    } else if (low.includes('dato') || low.includes('analytic') || low.includes('etl') || low.includes('bi') || low.includes('lake')) {
+      autoDesc = `Arquitectura de datos y analítica en la nube para ${clean}, con almacenamiento duradero y seguro en S3, procesamiento por lotes en EC2 y persistencia estructurada.`;
+      autoGoal = `Habilitar la ingesta y análisis continuo de información corporativa para ${clean}, eliminando cuellos de botella on-premise y reduciendo el costo por gigabyte almacenado.`;
+    }
+
+    return { autoDesc, autoGoal };
+  };
+
+  const handleSolutionNameChange = (newName: string) => {
+    setSolutionName(newName);
+    const { autoDesc, autoGoal } = generateAutoTexts(newName, applicationType);
+    setDescription(autoDesc);
+    setMigrationGoal(autoGoal);
+  };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const toggleService = (serviceName: string) => {
@@ -98,16 +134,50 @@ export const Planning: React.FC = () => {
       migrationGoal,
     });
 
+    // Sincronizar explícitamente con costos y economía
+    syncCostItemsWithServices(selectedServices);
+
+    // Si hay un cliente activo seleccionado, asociar y registrar automáticamente la consulta en su expediente
+    if (activeClient) {
+      const generatedCostItems = createCostItemsFromServices(selectedServices);
+      const estMonthly = generatedCostItems.reduce((acc, item) => acc + item.monthlyCost, 0);
+      generateConsultation(`Propuesta: ${solutionName}`, {
+        estimatedMonthlyCost: estMonthly,
+        estimatedAnnualCost: estMonthly * 12,
+        selectedRegion,
+        servicesPayload: generatedCostItems.map(item => ({
+          serviceId: item.serviceId,
+          serviceName: item.serviceName,
+          category: item.category,
+          quantity: item.quantity,
+          monthlyCost: item.monthlyCost,
+        })),
+        architecturePayload: {
+          solutionName,
+          applicationType,
+          description,
+          estimatedUsers: Math.max(1, Number(estimatedUsers) || 1),
+          availabilityLevel,
+          migrationGoal,
+          executionRegion: activeClient.region,
+          executionDistrict: activeClient.district,
+          clientDni: activeClient.dni,
+          clientIp: activeClient.ip,
+        },
+      });
+    }
+
     addToast(
       hasRegionWarning ? 'warning' : 'success',
       'Propuesta registrada',
-      `"${solutionName}" guardada en ${formRegionData?.regionCode ?? selectedRegion.split(' ')[0]}`
+      `"${solutionName}" conectada con Costos y expediente de ${activeClient ? activeClient.name : 'Cliente'} en ${formRegionData?.regionCode ?? selectedRegion.split(' ')[0]}`
     );
 
     setFormSuccess(true);
     setSolutionName('');
     setDescription('');
     setMigrationGoal('');
+    setSelectedServices([]);
     setTimeout(() => setFormSuccess(false), 4000);
   };
 
@@ -211,14 +281,19 @@ export const Planning: React.FC = () => {
 
               {/* 1. Nombre */}
               <div>
-                <label className="block font-semibold text-[#1E293B] mb-1">
-                  1. Nombre de la Solución *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-[#1E293B]">
+                    1. Nombre de la Solución *
+                  </label>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                    ✨ Auto-completa descripción y objetivo
+                  </span>
+                </div>
                 <input
                   type="text" required
-                  placeholder="ej. Sistema ERP CloudOps"
+                  placeholder="ej. Sistema ERP Corporativo, Portal Web, Tienda Online..."
                   value={solutionName}
-                  onChange={e => setSolutionName(e.target.value)}
+                  onChange={e => handleSolutionNameChange(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] focus:ring-2 focus:ring-[#2563EB] focus:outline-none text-xs"
                 />
               </div>
@@ -230,7 +305,15 @@ export const Planning: React.FC = () => {
                 </label>
                 <select
                   value={applicationType}
-                  onChange={e => setApplicationType(e.target.value)}
+                  onChange={e => {
+                    const nextType = e.target.value;
+                    setApplicationType(nextType);
+                    if (solutionName) {
+                      const { autoDesc, autoGoal } = generateAutoTexts(solutionName, nextType);
+                      setDescription(autoDesc);
+                      setMigrationGoal(autoGoal);
+                    }
+                  }}
                   className="w-full px-3 py-2 rounded-lg border border-[#E2E8F0] focus:ring-2 focus:ring-[#2563EB] focus:outline-none text-xs bg-white"
                 >
                   <option>Web Empresarial (B2B)</option>
@@ -242,9 +325,14 @@ export const Planning: React.FC = () => {
 
               {/* 3. Descripción */}
               <div>
-                <label className="block font-semibold text-[#1E293B] mb-1">
-                  3. Descripción *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-[#1E293B]">
+                    3. Descripción *
+                  </label>
+                  <span className="text-[10px] text-slate-400">
+                    Auto-rellenado según la solución
+                  </span>
+                </div>
                 <textarea
                   required rows={2}
                   placeholder="Finalidad y alcance de la arquitectura..."
@@ -325,24 +413,35 @@ export const Planning: React.FC = () => {
 
               {/* 7. Servicios */}
               <div>
-                <label className="block font-semibold text-[#1E293B] mb-1.5">
-                  7. Servicios Cloud Seleccionados ({selectedServices.length}) *
-                </label>
-                <div className={`grid grid-cols-2 gap-1.5 p-2.5 bg-slate-50 border rounded-xl max-h-36 overflow-y-auto ${
-                  servicesError ? 'border-[#DC2626] ring-1 ring-[#DC2626]/40 bg-rose-50/20' : 'border-[#E2E8F0]'
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-semibold text-[#1E293B]">
+                    7. Servicios Cloud Seleccionados ({selectedServices.length}) *
+                  </label>
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    🔗 Conectado con Costos y Economía
+                  </span>
+                </div>
+                <div className={`grid grid-cols-2 gap-2 p-2.5 bg-slate-50 dark:bg-slate-900/60 border rounded-xl max-h-40 overflow-y-auto ${
+                  servicesError ? 'border-[#DC2626] ring-1 ring-[#DC2626]/40 bg-rose-50/20' : 'border-[#E2E8F0] dark:border-slate-700'
                 }`}>
                   {services.map(s => {
                     const isChecked = selectedServices.includes(s.name);
                     return (
-                      <label key={s.id} className={`flex items-center gap-1.5 p-1 rounded-md text-[11px] cursor-pointer transition-colors ${
-                        isChecked ? 'bg-blue-100 text-[#2563EB] font-medium' : 'text-[#64748B] hover:bg-slate-200/60'
-                      }`}>
+                      <label
+                        key={s.id}
+                        className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold cursor-pointer border transition-all ${
+                          isChecked
+                            ? 'bg-blue-600 text-white border-blue-500 shadow-sm dark:bg-blue-600 dark:text-white dark:border-blue-400'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                        }`}
+                      >
                         <input
-                          type="checkbox" checked={isChecked}
+                          type="checkbox"
+                          checked={isChecked}
                           onChange={() => toggleService(s.name)}
-                          className="rounded border-slate-300 text-[#2563EB] focus:ring-blue-500 w-3 h-3"
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                         />
-                        <span className="truncate">{s.name}</span>
+                        <span className="truncate select-none font-medium">{s.name}</span>
                       </label>
                     );
                   })}
@@ -357,9 +456,14 @@ export const Planning: React.FC = () => {
 
               {/* 8. Objetivo */}
               <div>
-                <label className="block font-semibold text-[#1E293B] mb-1">
-                  8. Objetivo de la Migración *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-[#1E293B]">
+                    8. Objetivo de la Migración *
+                  </label>
+                  <span className="text-[10px] text-slate-400">
+                    Auto-rellenado según la solución
+                  </span>
+                </div>
                 <textarea
                   required rows={2}
                   placeholder="ej. Reducir costos operativos on-premise..."

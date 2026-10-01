@@ -34,9 +34,18 @@ export const Dashboard: React.FC = () => {
     services,
     selectedRegion,
     activeRegionData,
+    proposals,
   } = useCloud();
 
-  const activeServicesCount = services.filter(s => s.status === 'Activo').length;
+  // Obtener conjunto de servicios AWS realmente utilizados en propuestas o estimaciones
+  const usedServicesSet = new Set<string>();
+  proposals.forEach(p => p.selectedServices?.forEach(s => usedServicesSet.add(s)));
+  costItems.forEach(c => usedServicesSet.add(c.serviceName));
+  const usedServices = Array.from(usedServicesSet);
+  const usedCount = usedServices.length;
+  const hasArchitecture = usedCount > 0 || proposals.length > 0;
+  const deployedServices = activeRegionData?.deployedServices ?? [];
+
   const isPrimaryActive = activeRegionData?.regionCode === 'us-east-1';
 
   const regionBadgeType = activeRegionData?.status === 'Operativo'
@@ -111,11 +120,11 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard
           title="Servicios Utilizados"
-          value={`${activeServicesCount} / ${services.length}`}
-          subtitle="EC2, S3, RDS, IAM, VPC, Route 53, CF"
+          value={`${usedCount} / ${services.length}`}
+          subtitle={usedCount > 0 ? usedServices.slice(0, 4).join(', ') + (usedServices.length > 4 ? '…' : '') : 'Sin servicios activos aún'}
           icon={Layers}
-          badgeText="100% Cobertura"
-          badgeType="success"
+          badgeText={usedCount > 0 ? `${Math.round((usedCount / services.length) * 100)}% Cobertura` : '0% En uso'}
+          badgeType={usedCount > 0 ? 'success' : 'info'}
           iconBgColor="bg-blue-50"
           iconColor="text-[#2563EB]"
         />
@@ -133,11 +142,11 @@ export const Dashboard: React.FC = () => {
 
         <StatCard
           title="Recursos en Región"
-          value={`${activeRegionData?.deployedServices.length ?? activeServicesCount} Servicios`}
-          subtitle={activeRegionData ? activeRegionData.deployedServices.slice(0, 3).join(' · ') + (activeRegionData.deployedServices.length > 3 ? '…' : '') : 'Computación · BD · Red · IAM'}
+          value={`${deployedServices.length} Servicios`}
+          subtitle={deployedServices.length > 0 ? deployedServices.slice(0, 3).join(' · ') + (deployedServices.length > 3 ? '…' : '') : `Sin recursos desplegados en ${activeRegionData?.regionCode}`}
           icon={Server}
-          badgeText={activeRegionData?.regionCode ?? 'Multi-AZ'}
-          badgeType="success"
+          badgeText={deployedServices.length > 0 ? (activeRegionData?.regionCode ?? 'Multi-AZ') : '0 Activos'}
+          badgeType={deployedServices.length > 0 ? 'success' : 'info'}
           iconBgColor="bg-emerald-50"
           iconColor="text-[#16A34A]"
         />
@@ -170,13 +179,13 @@ export const Dashboard: React.FC = () => {
 
         <StatCard
           title="Estado de Seguridad"
-          value={`${correctSecurity} / ${SECURITY_PILLARS.length} OK`}
-          subtitle={`${reviewSecurity} en revisión · ${problemSecurity} problemas`}
+          value={hasArchitecture ? `${correctSecurity} / ${SECURITY_PILLARS.length} OK` : '0 / 5 Evaluados'}
+          subtitle={hasArchitecture ? `${reviewSecurity} en revisión · ${problemSecurity} problemas` : 'Sin arquitectura activa para auditar'}
           icon={ShieldCheck}
-          badgeText="Well-Architected"
-          badgeType="success"
-          iconBgColor="bg-emerald-50"
-          iconColor="text-[#16A34A]"
+          badgeText={hasArchitecture ? 'Well-Architected' : 'Pendiente'}
+          badgeType={hasArchitecture ? 'success' : 'info'}
+          iconBgColor={hasArchitecture ? 'bg-emerald-50' : 'bg-slate-100'}
+          iconColor={hasArchitecture ? 'text-[#16A34A]' : 'text-slate-500'}
         />
       </div>
 
@@ -286,36 +295,48 @@ export const Dashboard: React.FC = () => {
               <ShieldCheck className="w-5 h-5 text-[#16A34A]" />
             </div>
 
-            {/* Contadores Semáforo */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
-                <span className="block text-lg font-bold text-[#16A34A]">{correctSecurity}</span>
-                <span className="text-[10px] text-emerald-800 font-medium">Correcto</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-center">
-                <span className="block text-lg font-bold text-[#F59E0B]">{reviewSecurity}</span>
-                <span className="text-[10px] text-amber-800 font-medium">Revisión</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-center">
-                <span className="block text-lg font-bold text-[#DC2626]">{problemSecurity}</span>
-                <span className="text-[10px] text-rose-800 font-medium">Problema</span>
-              </div>
-            </div>
-
-            {/* Lista breve de pilares */}
-            <div className="space-y-2">
-              {SECURITY_PILLARS.slice(0, 3).map((pillar) => (
-                <div 
-                  key={pillar.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-[#E2E8F0] text-xs"
-                >
-                  <span className="font-medium text-[#1E293B] truncate max-w-[170px]">
-                    {pillar.title}
-                  </span>
-                  <StatusBadge status={pillar.status} size="sm" />
+            {/* Contadores Semáforo o Aviso de Arquitectura Pendiente */}
+            {hasArchitecture ? (
+              <>
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                    <span className="block text-lg font-bold text-[#16A34A]">{correctSecurity}</span>
+                    <span className="text-[10px] text-emerald-800 font-medium">Correcto</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                    <span className="block text-lg font-bold text-[#F59E0B]">{reviewSecurity}</span>
+                    <span className="text-[10px] text-amber-800 font-medium">Revisión</span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-center">
+                    <span className="block text-lg font-bold text-[#DC2626]">{problemSecurity}</span>
+                    <span className="text-[10px] text-rose-800 font-medium">Problema</span>
+                  </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Lista breve de pilares */}
+                <div className="space-y-2">
+                  {SECURITY_PILLARS.slice(0, 3).map((pillar) => (
+                    <div 
+                      key={pillar.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-[#E2E8F0] text-xs"
+                    >
+                      <span className="font-medium text-[#1E293B] truncate max-w-[170px]">
+                        {pillar.title}
+                      </span>
+                      <StatusBadge status={pillar.status} size="sm" />
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-50 border border-dashed border-[#CBD5E1] text-center space-y-2 my-2">
+                <ShieldCheck className="w-8 h-8 text-slate-400 mx-auto" />
+                <p className="text-xs font-semibold text-[#1E293B]">Auditoría Well-Architected Pendiente</p>
+                <p className="text-[11px] text-[#64748B] leading-relaxed">
+                  No hay servicios o arquitectura registrada. Diseña una solución en <strong>Planificación Cloud</strong> para evaluar los 5 pilares de seguridad.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="pt-4 mt-4 border-t border-[#E2E8F0]">

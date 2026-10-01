@@ -11,7 +11,10 @@ import {
   Search, 
   Filter, 
   Layers, 
-  ArrowUpRight 
+  ArrowUpRight,
+  Trash2,
+  Eye,
+  Download
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -39,11 +42,15 @@ export const Auditorio: React.FC = () => {
     clients, 
     consultations, 
     auditLogs, 
+    activeClient,
     executionLocation, 
     detectLocation, 
     isDetectingLocation,
     setShowClientModal,
     exportConsultationAsPrint,
+    exportClientSummary,
+    deleteAuditLog,
+    clearAuditLogs,
   } = useClient();
 
   const { isConnected } = useSupabase();
@@ -122,7 +129,23 @@ export const Auditorio: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <button
+              onClick={() => {
+                const target = activeClient || clients[0];
+                if (target) {
+                  exportClientSummary(target);
+                } else {
+                  addToast('warning', 'Sin clientes registrados', 'Crea un perfil de cliente para poder exportar su resumen.');
+                  setShowClientModal(true);
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all shadow-md shadow-emerald-500/20"
+              title="Exportar Resumen Integral para el Cliente"
+            >
+              <Download className="w-4 h-4" />
+              <span>Exportar Resumen del Cliente</span>
+            </button>
             <button
               onClick={() => setShowClientModal(true)}
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-md shadow-blue-500/20"
@@ -398,28 +421,34 @@ export const Auditorio: React.FC = () => {
 
             {/* Grid de Telemetría Geográfica */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div className="p-4 rounded-xl border bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                  {activeClient ? 'Cliente Activo' : 'Cliente Seleccionado'}
+                </span>
+                <p className="text-lg font-extrabold text-emerald-700 dark:text-emerald-300 mt-1 truncate">
+                  {activeClient ? activeClient.company || activeClient.name : 'Sin cliente activo'}
+                </p>
+                <span className="text-[11px] text-emerald-600/80 font-medium">
+                  📍 {activeClient ? `${activeClient.district}, ${activeClient.region}` : 'Seleccione un perfil'}
+                </span>
+              </div>
+
               <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-800/40" style={{ borderColor: 'var(--border)' }}>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Distrito Actual</span>
-                <p className="text-xl font-extrabold text-blue-600 dark:text-blue-400 mt-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Estación del Operador</span>
+                <p className="text-lg font-extrabold text-blue-600 dark:text-blue-400 mt-1 truncate">
                   {executionLocation.district}
                 </p>
-                <span className="text-[11px] text-slate-500">Ejecución del sistema</span>
+                <span className="text-[11px] text-slate-500">{executionLocation.region} · {executionLocation.source === 'gps' ? 'GPS' : 'Red IP'}</span>
               </div>
 
               <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-800/40" style={{ borderColor: 'var(--border)' }}>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Región Geográfica</span>
-                <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">
-                  {executionLocation.region}
-                </p>
-                <span className="text-[11px] text-slate-500">Perú (Zona Horaria GMT-5)</span>
-              </div>
-
-              <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-800/40" style={{ borderColor: 'var(--border)' }}>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordenadas GPS</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Coordenadas del Foco</span>
                 <p className="text-sm font-bold font-mono mt-1" style={{ color: 'var(--text-primary)' }}>
-                  {executionLocation.latitude.toFixed(4)}, {executionLocation.longitude.toFixed(4)}
+                  {activeClient?.latitude ? activeClient.latitude.toFixed(4) : executionLocation.latitude.toFixed(4)}, {activeClient?.longitude ? activeClient.longitude.toFixed(4) : executionLocation.longitude.toFixed(4)}
                 </p>
-                <span className="text-[11px] text-slate-500">Precisión ±{executionLocation.accuracyMeters || 15}m</span>
+                <span className="text-[11px] text-slate-500">
+                  {activeClient ? 'GPS sede del cliente' : 'GPS estación operador'}
+                </span>
               </div>
 
               <div className="p-4 rounded-xl border bg-slate-50 dark:bg-slate-800/40" style={{ borderColor: 'var(--border)' }}>
@@ -434,28 +463,19 @@ export const Auditorio: React.FC = () => {
 
           {/* MAPA INTERACTIVO CON LEAFLET */}
           <div className="card-base p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h4 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
-                  Mapa en Vivo: Nodo de Ejecución y Cobertura de Consultas
-                </h4>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  El pin azul pulsante indica la ubicación exacta donde se está ejecutando la sesión. Los pines morados representan consultas generadas.
-                </p>
-              </div>
-              <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-blue-600"></span> Nodo Ejecución
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-purple-600"></span> Consultas Clientes
-                </span>
-              </div>
+            <div className="mb-4">
+              <h4 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                Mapa de Cobertura y Ejecución Geográfica
+              </h4>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                Visualización interactiva y georreferenciación de solicitudes y nodos en tiempo real.
+              </p>
             </div>
 
             <InteractiveMap
               location={executionLocation}
               consultations={consultations}
+              activeClient={activeClient}
             />
           </div>
         </div>
@@ -514,6 +534,22 @@ export const Auditorio: React.FC = () => {
                     <option value="Acceso a Auditorio">Acceso / Sistema</option>
                   </select>
                 </div>
+
+                {/* Botón para vaciar toda la bitácora */}
+                {auditLogs.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('¿Está seguro de que desea eliminar todos los eventos de la bitácora? Esta acción no se puede deshacer.')) {
+                        clearAuditLogs();
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-100 transition-colors"
+                    title="Eliminar todos los registros de auditoría"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Vaciar Bitácora</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -522,12 +558,13 @@ export const Auditorio: React.FC = () => {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b" style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}>
-                    <th className="py-2.5 font-bold uppercase">Timestamp (UTC / Local)</th>
+                    <th className="py-2.5 font-bold uppercase">Fecha y Hora</th>
                     <th className="py-2.5 font-bold uppercase">Acción</th>
                     <th className="py-2.5 font-bold uppercase">Entidad</th>
                     <th className="py-2.5 font-bold uppercase">Operador / Usuario</th>
-                    <th className="py-2.5 font-bold uppercase">Ubicación (Distrito, Región)</th>
-                    <th className="py-2.5 font-bold uppercase text-right">Detalle Técnico</th>
+                    <th className="py-2.5 font-bold uppercase">Ubicación</th>
+                    <th className="py-2.5 font-bold uppercase">Resumen de Actividad</th>
+                    <th className="py-2.5 font-bold uppercase text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y" style={{ borderColor: 'var(--border)' }}>
@@ -539,10 +576,24 @@ export const Auditorio: React.FC = () => {
                       log.action === 'Eliminación de Usuario' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' :
                       'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
 
+                    // Resumen legible sin JSON
+                    let summaryText = 'Actividad registrada';
+                    if (log.details) {
+                      if (log.details.title) {
+                        summaryText = `${log.details.title} ${log.details.monthlyUSD ? `($${Number(log.details.monthlyUSD).toFixed(0)} USD/mes)` : ''}`;
+                      } else if (log.details.name && log.details.company) {
+                        summaryText = `${log.details.name} - ${log.details.company}`;
+                      } else if (log.details.format) {
+                        summaryText = `Reporte exportado en formato ${log.details.format}`;
+                      } else if (log.details.deletedClientId) {
+                        summaryText = `Usuario removido: ${log.details.name || log.details.deletedClientId}`;
+                      }
+                    }
+
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                         <td className="py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                          {new Date(log.createdAt).toLocaleString('es-PE')}
+                          {new Date(log.createdAt).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="py-3">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeColor}`}>
@@ -558,13 +609,31 @@ export const Auditorio: React.FC = () => {
                         <td className="py-3 text-slate-500">
                           📍 {log.district}, {log.region}
                         </td>
+                        <td className="py-3 text-slate-600 dark:text-slate-300 max-w-xs truncate">
+                          {summaryText}
+                        </td>
                         <td className="py-3 text-right">
-                          <button
-                            onClick={() => setSelectedLogDetail(log)}
-                            className="px-2 py-1 text-[11px] font-mono rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
-                          >
-                            Ver JSON
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setSelectedLogDetail(log)}
+                              className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors"
+                              title="Ver información detallada"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Detalle</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm('¿Desea eliminar este registro de la bitácora?')) {
+                                  deleteAuditLog(log.id);
+                                }
+                              }}
+                              className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition-colors"
+                              title="Eliminar evento"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -582,33 +651,129 @@ export const Auditorio: React.FC = () => {
         </div>
       )}
 
-      {/* Modal visor de JSON semiestructurado */}
+      {/* Modal visor de Detalle de Auditoría estructurado y comprensible (Sin JSON crudo) */}
       {selectedLogDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs">
-          <div className="card-base p-6 max-w-lg w-full rounded-2xl border shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+          <div 
+            className="w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden p-6 space-y-4"
+            style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border)' }}
+          >
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--border)' }}>
-              <div>
-                <h4 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
-                  Detalle Semiestructurado (JSONB)
-                </h4>
-                <p className="text-xs text-slate-500">Evento: {selectedLogDetail.action}</p>
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600">
+                  <ScrollText className="w-5 h-5" />
+                </span>
+                <div>
+                  <h4 className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
+                    Detalle del Evento de Auditoría
+                  </h4>
+                  <p className="text-xs text-slate-500">ID: {selectedLogDetail.id}</p>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedLogDetail(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 text-base"
               >
                 ✕
               </button>
             </div>
 
-            <div className="bg-slate-900 text-emerald-400 p-4 rounded-xl text-xs font-mono overflow-auto max-h-80">
-              <pre>{JSON.stringify(selectedLogDetail, null, 2)}</pre>
+            {/* Fichas legibles de información del evento */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border" style={{ borderColor: 'var(--border)' }}>
+                  <span className="block text-[10px] uppercase font-bold text-slate-400">Acción Realizada</span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400 mt-0.5 block">
+                    {selectedLogDetail.action}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border" style={{ borderColor: 'var(--border)' }}>
+                  <span className="block text-[10px] uppercase font-bold text-slate-400">Tipo de Entidad</span>
+                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {selectedLogDetail.entityType}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border" style={{ borderColor: 'var(--border)' }}>
+                  <span className="block text-[10px] uppercase font-bold text-slate-400">Operador / Usuario</span>
+                  <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {selectedLogDetail.userName}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border" style={{ borderColor: 'var(--border)' }}>
+                  <span className="block text-[10px] uppercase font-bold text-slate-400">Fecha y Hora</span>
+                  <span className="font-mono text-slate-600 dark:text-slate-300">
+                    {new Date(selectedLogDetail.createdAt).toLocaleString('es-PE')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border text-xs" style={{ borderColor: 'var(--border)' }}>
+                <span className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Ubicación de Origen</span>
+                <p className="font-semibold text-slate-700 dark:text-slate-200">
+                  📍 {selectedLogDetail.district} · {selectedLogDetail.region}
+                </p>
+              </div>
+
+              {/* Datos complementarios legibles */}
+              {selectedLogDetail.details && Object.keys(selectedLogDetail.details).length > 0 && (
+                <div className="p-3.5 rounded-xl border bg-slate-50/70 dark:bg-slate-800/40 text-xs space-y-2" style={{ borderColor: 'var(--border)' }}>
+                  <span className="block text-[10px] uppercase font-bold text-slate-400 border-b pb-1" style={{ borderColor: 'var(--border)' }}>
+                    Parámetros Registrados
+                  </span>
+                  <div className="space-y-1.5 text-xs">
+                    {Object.entries(selectedLogDetail.details).map(([key, value]) => {
+                      const labelMap: Record<string, string> = {
+                        title: 'Título de Consulta',
+                        client: 'Cliente',
+                        clientName: 'Nombre del Cliente',
+                        monthlyUSD: 'Inversión Mensual Estimada',
+                        annualUSD: 'Inversión Anual Estimada',
+                        format: 'Formato de Exportación',
+                        district: 'Distrito',
+                        region: 'Región',
+                        lat: 'Latitud',
+                        lon: 'Longitud',
+                        consultationId: 'ID de Consulta',
+                        deletedClientId: 'ID Cliente Eliminado',
+                        name: 'Nombre',
+                        company: 'Empresa',
+                      };
+                      const label = labelMap[key] || key;
+                      const displayVal = typeof value === 'number' && key.toLowerCase().includes('usd')
+                        ? `$${value.toFixed(2)} USD`
+                        : typeof value === 'object'
+                        ? JSON.stringify(value)
+                        : String(value);
+
+                      return (
+                        <div key={key} className="flex justify-between items-center py-0.5">
+                          <span className="text-slate-500 font-medium">{label}:</span>
+                          <span className="font-semibold text-right" style={{ color: 'var(--text-primary)' }}>
+                            {displayVal}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+              <button
+                onClick={() => {
+                  deleteAuditLog(selectedLogDetail.id);
+                  setSelectedLogDetail(null);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Eliminar Registro</span>
+              </button>
+
               <button
                 onClick={() => setSelectedLogDetail(null)}
-                className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold"
+                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors"
               >
                 Cerrar
               </button>

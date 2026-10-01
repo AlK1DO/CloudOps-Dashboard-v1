@@ -52,6 +52,7 @@ interface CloudContextType {
   addCostItem: (item: Omit<CostCalculationItem, 'id'>) => void;
   removeCostItem: (id: string) => void;
   syncCostItemsWithServices: (serviceNames: string[]) => void;
+  clearCloudData: () => void;
   services: AwsService[];
   regions: GlobalRegion[];
   selectedRegion: string;
@@ -66,7 +67,7 @@ interface CloudContextType {
 const CloudContext = createContext<CloudContextType | undefined>(undefined);
 
 export const CloudProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // ── Inicializar propuestas y costos sincronizados ──────────
+  // ── Inicializar propuestas y costos sincronizados (por defecto vacío para datos reales) ──
   const [proposals, setProposals] = useState<CloudProposal[]>(() =>
     readStorage<CloudProposal[]>(LS_PROPOSALS, [])
   );
@@ -103,6 +104,18 @@ export const CloudProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCostItems(synced);
   };
 
+  // ── Limpiar todos los datos para empezar con cliente nuevo en blanco ───────
+  const clearCloudData = () => {
+    setProposals([]);
+    setCostItems([]);
+    try {
+      localStorage.removeItem(LS_PROPOSALS);
+      localStorage.removeItem(LS_COST_ITEMS);
+    } catch {
+      // Ignorar
+    }
+  };
+
   // ── Proposals ─────────────────────────────────────────────────────────────
   const addProposal = (newProp: Omit<CloudProposal, 'id' | 'createdAt'>) => {
     const proposal: CloudProposal = {
@@ -112,10 +125,15 @@ export const CloudProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setProposals(prev => [proposal, ...prev]);
 
-    // Conectar inmediatamente con Costos y Economía (Deshabilitado para no sobrescribir)
-    /* if (proposal.selectedServices && proposal.selectedServices.length > 0) {
-      syncCostItemsWithServices(proposal.selectedServices);
-    } */
+    // Conectar automáticamente con Costos y Economía según los servicios elegidos
+    if (proposal.selectedServices && proposal.selectedServices.length > 0) {
+      const generated = createCostItemsFromServices(proposal.selectedServices);
+      setCostItems(prev => {
+        const existingServiceIds = new Set(prev.map(i => i.serviceId));
+        const toAdd = generated.filter(g => !existingServiceIds.has(g.serviceId));
+        return [...prev, ...toAdd];
+      });
+    }
   };
 
   const removeProposal = (id: string) => {
@@ -141,13 +159,13 @@ export const CloudProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const latestProposal = proposals[0];
     const deployedServices = latestProposal?.selectedServices && latestProposal.selectedServices.length > 0
       ? latestProposal.selectedServices
-      : baseRegion.deployedServices;
+      : (costItems.length > 0 ? Array.from(new Set(costItems.map(c => c.serviceName))) : []);
 
     return {
       ...baseRegion,
       deployedServices,
     };
-  }, [selectedRegion, proposals]);
+  }, [selectedRegion, proposals, costItems]);
 
   const costMultiplier = activeRegionData.costMultiplier;
   const baseMonthlyCost = costItems.reduce((sum, item) => sum + item.monthlyCost, 0);
@@ -164,6 +182,7 @@ export const CloudProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addCostItem,
         removeCostItem,
         syncCostItemsWithServices,
+        clearCloudData,
         services: AWS_SERVICES,
         regions: GLOBAL_REGIONS,
         selectedRegion,

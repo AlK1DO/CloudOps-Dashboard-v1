@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   X, 
   UserPlus, 
@@ -12,16 +12,14 @@ import {
   Phone, 
   MapPin, 
   Plus, 
-  DollarSign, 
-  Database,
-  ExternalLink,
-  Copy,
-  Check
+  DollarSign,
+  Search,
+  Loader2
 } from 'lucide-react';
-import { useClient } from '../context/ClientContext';
+import { useClient, PERU_DISTRICTS, resolveDistrictCoordinates } from '../context/ClientContext';
 import { useCloud } from '../context/CloudContext';
-import { useSupabase } from '../context/SupabaseContext';
 import { useToast } from '../context/ToastContext';
+import { lookupPeruIdentity, IdentityLookupResult } from '../services/identityService';
 
 export const ClientManagementModal: React.FC = () => {
   const { 
@@ -37,44 +35,111 @@ export const ClientManagementModal: React.FC = () => {
     deleteConsultation,
     exportConsultationAsJSON, 
     exportConsultationAsPrint,
+    exportClientSummary,
     executionLocation 
   } = useClient();
 
-  const { totalMonthlyCost, totalAnnualCost } = useCloud();
-  const { isConnected } = useSupabase();
+  const { totalMonthlyCost, totalAnnualCost, clearCloudData } = useCloud();
   const { addToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'consultations' | 'sql'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'consultations'>('list');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState('');
-  const [copiedSql, setCopiedSql] = useState(false);
 
-  const getInitialForm = () => ({
-    name: '',
-    dni: '',
-    company: '',
-    phone: '',
-    email: '',
-    region: executionLocation.region || 'Lima',
-    district: executionLocation.district || 'Cercado de Lima',
-    ip: executionLocation.ip || '181.176.209.235',
-    notes: '',
-  });
+  const districtList = Object.keys(PERU_DISTRICTS);
+  const [selectedPresetDistrict, setSelectedPresetDistrict] = useState<string>('San Isidro');
+  const [isCustomDistrict, setIsCustomDistrict] = useState(false);
 
-  // Formulario nuevo cliente con ubicación e IP detectadas automáticamente
+  const getInitialForm = () => {
+    const coords = resolveDistrictCoordinates('San Isidro');
+    return {
+      name: '',
+      dni: '',
+      company: '',
+      phone: '',
+      email: '',
+      region: coords.region,
+      district: 'San Isidro',
+      ip: executionLocation.ip || '181.176.209.235',
+      notes: '',
+    };
+  };
+
+  // Formulario nuevo cliente con ubicación del cliente
   const [formData, setFormData] = useState(getInitialForm);
+  const [docQuery, setDocQuery] = useState('');
+  const [isSearchingDoc, setIsSearchingDoc] = useState(false);
+  const [docLookupResult, setDocLookupResult] = useState<IdentityLookupResult | null>(null);
 
-  // Sincronizar automáticamente la ubicación si cambia
-  useEffect(() => {
-    if (activeTab === 'create' && !formData.name) {
+  const handleLookupDoc = async () => {
+    const clean = docQuery.replace(/\D/g, '').trim();
+    if (clean.length !== 8 && clean.length !== 11) {
+      addToast('warning', 'Documento no válido', 'Ingrese 8 dígitos para DNI o 11 dígitos para RUC.');
+      return;
+    }
+
+    setIsSearchingDoc(true);
+    try {
+      const result = await lookupPeruIdentity(clean);
+      setDocLookupResult(result);
+      setSelectedPresetDistrict(result.district);
+      setIsCustomDistrict(false);
+
       setFormData(prev => ({
         ...prev,
-        region: executionLocation.region || prev.region,
-        district: executionLocation.district || prev.district,
-        ip: executionLocation.ip || prev.ip,
+        dni: result.documentNumber,
+        company: result.company || prev.company,
+        name: result.name || prev.name,
+        district: result.district,
+        region: result.region,
+        notes: result.address ? `Dirección Fiscal: ${result.address}. (${result.notes})` : prev.notes,
       }));
+
+      addToast(
+        'success',
+        `${result.documentType} verificado ante SUNAT`,
+        `${result.company} — Sede en ${result.district}`
+      );
+    } catch (err: any) {
+      if (clean.length === 8) {
+        setFormData(prev => ({ ...prev, dni: clean }));
+        addToast(
+          'info',
+          'DNI registrado (RENIEC Privado)',
+          'Por la Ley de Protección de Datos Personales (Ley N° 29733), la base de RENIEC es confidencial. Complete el Nombre del contacto y Distrito manualmente.'
+        );
+      } else {
+        addToast('error', 'Consulta SUNAT', err?.message || 'No se pudo verificar el RUC con el padrón oficial.');
+      }
+    } finally {
+      setIsSearchingDoc(false);
     }
-  }, [executionLocation, activeTab]);
+  };
+
+  const handlePresetDistrictChange = (dName: string) => {
+    if (dName === '__custom__') {
+      setIsCustomDistrict(true);
+      return;
+    }
+    setIsCustomDistrict(false);
+    setSelectedPresetDistrict(dName);
+    const coords = resolveDistrictCoordinates(dName);
+    setFormData(prev => ({
+      ...prev,
+      district: dName,
+      region: coords.region,
+    }));
+  };
+
+  const handleUseCurrentLocation = () => {
+    setIsCustomDistrict(true);
+    setFormData(prev => ({
+      ...prev,
+      district: executionLocation.district,
+      region: executionLocation.region,
+    }));
+    addToast('info', 'Ubicación local aplicada', `${executionLocation.district}, ${executionLocation.region}`);
+  };
 
   if (!showClientModal) return null;
 
@@ -85,26 +150,36 @@ export const ClientManagementModal: React.FC = () => {
       return;
     }
 
-    await addClient({
+    const coords = resolveDistrictCoordinates(formData.district);
+    const newClient = await addClient({
       name: formData.name.trim(),
       dni: formData.dni.trim(),
       company: formData.company.trim(),
       phone: formData.phone.trim(),
       email: formData.email.trim(),
-      region: formData.region.trim() || executionLocation.region,
-      district: formData.district.trim() || executionLocation.district,
+      region: formData.region.trim() || coords.region,
+      district: formData.district.trim(),
+      latitude: coords.lat,
+      longitude: coords.lon,
       ip: formData.ip.trim() || executionLocation.ip || '181.176.209.235',
       notes: formData.notes.trim(),
       metadata: {
         dni: formData.dni.trim(),
         ip: formData.ip.trim() || executionLocation.ip || '181.176.209.235',
+        latitude: coords.lat,
+        longitude: coords.lon,
         registeredFromDistrict: executionLocation.district,
         initialEstimatedBudget: totalMonthlyCost,
       },
     });
 
+    // Activar al cliente y limpiar datos anteriores para empezar en blanco según la necesidad del cliente
+    setActiveClient(newClient);
+    clearCloudData();
+
     setFormData(getInitialForm());
     setActiveTab('list');
+    addToast('success', 'Cliente creado', `Perfil de ${newClient.name} (${newClient.company}) listo. Se ingresa con datos limpios para dimensionar su solución.`);
   };
 
   const handleGenerate = async () => {
@@ -117,62 +192,6 @@ export const ClientManagementModal: React.FC = () => {
   const activeClientConsultations = consultations.filter(
     c => activeClient && c.clientId === activeClient.id
   );
-
-  const copySqlSnippet = () => {
-    const sql = `-- Ejecutar en el SQL Editor de Supabase:
-CREATE TABLE IF NOT EXISTS public.client_profiles (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  company TEXT,
-  phone TEXT,
-  email TEXT,
-  region TEXT DEFAULT 'Lima',
-  district TEXT DEFAULT 'Miraflores',
-  notes TEXT,
-  metadata JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.client_consultations (
-  id TEXT PRIMARY KEY,
-  client_id TEXT REFERENCES public.client_profiles(id) ON DELETE CASCADE,
-  client_name TEXT NOT NULL,
-  title TEXT NOT NULL,
-  status TEXT DEFAULT 'Presentada',
-  estimated_monthly_cost NUMERIC(12, 2) DEFAULT 0.00,
-  estimated_annual_cost NUMERIC(12, 2) DEFAULT 0.00,
-  selected_region TEXT NOT NULL,
-  district_execution TEXT NOT NULL,
-  services_payload JSONB DEFAULT '[]'::jsonb,
-  architecture_payload JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS public.audit_logs (
-  id TEXT PRIMARY KEY,
-  action TEXT NOT NULL,
-  entity_type TEXT NOT NULL,
-  entity_id TEXT,
-  user_name TEXT,
-  region TEXT,
-  district TEXT,
-  details JSONB DEFAULT '{}'::jsonb,
-  created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-
-ALTER TABLE public.client_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.client_consultations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Permitir todo en client_profiles" ON public.client_profiles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Permitir todo en client_consultations" ON public.client_consultations FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Permitir todo en audit_logs" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);`;
-
-    navigator.clipboard.writeText(sql);
-    setCopiedSql(true);
-    addToast('success', 'SQL Copiado', 'Pégalo en el SQL Editor de tu Supabase Dashboard.');
-    setTimeout(() => setCopiedSql(false), 2500);
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
@@ -356,6 +375,15 @@ CREATE POLICY "Permitir todo en audit_logs" ON public.audit_logs FOR ALL USING (
                                 {clientCons.length} {clientCons.length === 1 ? 'consulta' : 'consultas'}
                               </span>
                             )}
+
+                            <button
+                              onClick={() => exportClientSummary(client)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                              title="Exportar Resumen Integral para el Cliente"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Resumen</span>
+                            </button>
                           </div>
 
                           <div className="flex items-center gap-1.5">
@@ -410,7 +438,82 @@ CREATE POLICY "Permitir todo en audit_logs" ON public.audit_logs FOR ALL USING (
 
 
 
+              {/* Módulo de Búsqueda Rápida DNI / RUC */}
+              <div className="p-3.5 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/70 dark:bg-blue-950/25 mb-4">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900 dark:text-blue-300">
+                    <Search className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Consulta Registral SUNAT / RENIEC (Perú)</span>
+                  </div>
+                  <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold bg-blue-100 dark:bg-blue-900/60 px-2 py-0.5 rounded-full">
+                    Autocompletado & Mapa
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 mb-2.5">
+                  Ingrese <strong>RUC (11 dígitos)</strong> para extraer la Razón Social y Domicilio Fiscal exacto de la empresa, o <strong>DNI (8 dígitos)</strong> para consultar la persona de contacto y su distrito.
+                </p>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      maxLength={11}
+                      value={docQuery}
+                      onChange={(e) => setDocQuery(e.target.value.replace(/\D/g, ''))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleLookupDoc(); } }}
+                      placeholder="Ej: 20100047218 (RUC) o 71234567 (DNI)"
+                      className="w-full pl-3 pr-10 py-2 text-xs font-mono rounded-lg border focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900"
+                    />
+                    {docQuery.length > 0 && (
+                      <span className="absolute right-2.5 top-2 text-[10px] font-bold text-slate-400">
+                        {docQuery.length === 11 ? 'RUC' : docQuery.length === 8 ? 'DNI' : `${docQuery.length}d`}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLookupDoc}
+                    disabled={isSearchingDoc || (docQuery.length !== 8 && docQuery.length !== 11)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm shrink-0"
+                  >
+                    {isSearchingDoc ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Buscando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-3.5 h-3.5" />
+                        <span>Consultar</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                {docLookupResult && (
+                  <div className="mt-2.5 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>{docLookupResult.documentType} Validado:</strong> {docLookupResult.company || docLookupResult.name} · Estado: {docLookupResult.status} ({docLookupResult.condition})
+                      {docLookupResult.address && <div className="text-slate-600 dark:text-slate-400 mt-0.5">📍 {docLookupResult.address}</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    DNI o RUC del Cliente / Organización
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={11}
+                    value={formData.dni}
+                    onChange={(e) => setFormData({ ...formData, dni: e.target.value.replace(/\D/g, '') })}
+                    placeholder="DNI (8 dígitos) o RUC (11 dígitos)"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-lg border focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                     Nombre del Cliente / Contacto *
@@ -425,72 +528,111 @@ CREATE POLICY "Permitir todo en audit_logs" ON public.audit_logs FOR ALL USING (
                   />
                 </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                      Empresa / Organización *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.company}
-                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                      placeholder="Ingrese la empresa u organización"
-                      className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    Empresa / Razón Social *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.company}
+                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                    placeholder="Ingrese la empresa u organización"
+                    className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                      Teléfono / WhatsApp
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="Ingrese el teléfono de contacto"
-                      className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    Teléfono / WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="Ingrese el teléfono de contacto"
+                    className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                      Correo Electrónico
-                    </label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="Ingrese el correo electrónico"
-                      className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Ingrese el correo electrónico"
+                    className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                      Región (Detectada automáticamente) *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.region}
-                      onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                      placeholder="Región de atención"
-                      className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  <div className="md:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                        Distrito / Localidad del Cliente *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleUseCurrentLocation}
+                        className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium"
+                      >
+                        <span>🛰️ Usar ubicación de mi equipo ({executionLocation.district})</span>
+                      </button>
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-                      Distrito (Detectado automáticamente) *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.district}
-                      onChange={(e) => setFormData({ ...formData, district: e.target.value })}
-                      placeholder="Distrito de atención"
-                      className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
-                    />
+                    <select
+                      value={isCustomDistrict ? '__custom__' : selectedPresetDistrict}
+                      onChange={(e) => handlePresetDistrictChange(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 mb-2"
+                    >
+                      <optgroup label="Lima Metropolitana (Principales Distritos)">
+                        {districtList.slice(0, 24).map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Callao">
+                        {districtList.slice(24, 27).map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Otras Regiones / Departamentos">
+                        {districtList.slice(27).map(d => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </optgroup>
+                      <option value="__custom__">✏️ Escribir otro distrito / dirección personalizada...</option>
+                    </select>
+
+                    {isCustomDistrict && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+                        <input
+                          type="text"
+                          required
+                          value={formData.district}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const coords = resolveDistrictCoordinates(val);
+                            setFormData(prev => ({
+                              ...prev,
+                              district: val,
+                              region: coords.region,
+                            }));
+                          }}
+                          placeholder="Escriba el distrito (ej. San Isidro, Surco...)"
+                          className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
+                        />
+                        <input
+                          type="text"
+                          required
+                          value={formData.region}
+                          onChange={(e) => setFormData(prev => ({ ...prev, region: e.target.value }))}
+                          placeholder="Región / Departamento"
+                          className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -506,21 +648,22 @@ CREATE POLICY "Permitir todo en audit_logs" ON public.audit_logs FOR ALL USING (
                   className="w-full px-3 py-2 text-xs rounded-lg border focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              {/* Tarjeta de ubicación y IP detectada automáticamente */}
+
+              {/* Tarjeta de ubicación geográfica asignada al cliente */}
               <div className="p-3.5 rounded-xl border bg-blue-50/70 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                   <div>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 block">
-                      Ubicación e IP Detectadas Automáticamente
+                      Ubicación Geográfica Asignada al Cliente
                     </span>
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      📍 {formData.district || executionLocation.district}, {formData.region || executionLocation.region}
+                      📍 {formData.district}, {formData.region} (GPS: {resolveDistrictCoordinates(formData.district).lat.toFixed(4)}, {resolveDistrictCoordinates(formData.district).lon.toFixed(4)})
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-500">IP Pública:</span>
+                  <span className="text-[11px] text-slate-500">IP de Registro:</span>
                   <span className="px-2 py-0.5 rounded-md font-mono text-xs font-extrabold bg-white dark:bg-slate-900 border text-emerald-600 dark:text-emerald-400">
                     {formData.ip || executionLocation.ip || '181.176.209.235'}
                   </span>

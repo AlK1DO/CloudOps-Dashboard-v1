@@ -286,41 +286,47 @@ export const Costs: React.FC = () => {
               Gráfico de Distribución de Costos
             </h3>
 
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={45}
-                    outerRadius={75}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {pieData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(val: number) => [`$${val.toFixed(2)} USD/mes`, 'Gasto']}
-                    contentStyle={{ 
-                      backgroundColor: '#0F172A', 
-                      borderRadius: '8px', 
-                      color: '#fff', 
-                      border: 'none',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={36} 
-                    iconType="circle"
-                    formatter={(value) => <span className="text-xs text-[#1E293B]">{value}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            {pieData.length > 0 ? (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={75}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {pieData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(val: number) => [`$${val.toFixed(2)} USD/mes`, 'Gasto']}
+                      contentStyle={{ 
+                        backgroundColor: '#0F172A', 
+                        borderRadius: '8px', 
+                        color: '#fff', 
+                        border: 'none',
+                        fontSize: '12px'
+                      }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36} 
+                      iconType="circle"
+                      formatter={(value) => <span className="text-xs text-[#1E293B]">{value}</span>}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-64 flex items-center justify-center text-xs text-[#64748B] text-center p-4 border rounded-xl border-dashed border-[#E2E8F0]">
+                Sin servicios dimensionados aún. Agrega un servicio en el formulario para visualizar la distribución.
+              </div>
+            )}
           </div>
         </div>
 
@@ -360,8 +366,18 @@ export const Costs: React.FC = () => {
             </div>
           </div>
 
-          {/* Renderizado de Tarjetas */}
-          {viewMode === 'cards' ? (
+          {/* Renderizado de Tarjetas o Mensaje vacío */}
+          {costItems.length === 0 ? (
+            <div className="card-base p-10 flex flex-col items-center gap-3 text-center border-dashed border-[#CBD5E1]">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center">
+                <Calculator className="w-6 h-6 text-[#F59E0B]" />
+              </div>
+              <p className="text-sm font-semibold text-[#1E293B]">Sin servicios en la estimación</p>
+              <p className="text-xs text-[#64748B] max-w-sm">
+                Utiliza la calculadora de la izquierda para agregar servicios manualmente o registra una propuesta en <strong>Planificación Cloud</strong> para sincronizarlos.
+              </p>
+            </div>
+          ) : viewMode === 'cards' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {costItems.map((item) => (
                 <CostCard

@@ -72,7 +72,7 @@
   }
   .card-base:hover { box-shadow: var(--shadow-hover); }
 
-  .dark label { color: var(--text-primary) !important; }
+  .dark label:not([class*="text-"]) { color: var(--text-primary); }
 
   .dark .text-\[\#1E293B\] { color: var(--text-primary)   !important; }
   .dark .text-\[\#64748B\] { color: var(--text-secondary) !important; }

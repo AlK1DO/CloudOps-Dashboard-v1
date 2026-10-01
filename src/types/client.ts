@@ -9,6 +9,8 @@ export interface ClientProfile {
   email: string;
   region: string;
   district: string;
+  latitude?: number;
+  longitude?: number;
   ip?: string;
   notes?: string;
   metadata?: Record<string, any>; // Semiestructurado JSONB
