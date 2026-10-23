@@ -18,6 +18,8 @@ const routeTitles: Record<string, { title: string; subtitle: string }> = {
   '/security':       { title: 'Seguridad y Cumplimiento',    subtitle: 'Modelo de responsabilidad compartida, IAM y protección de datos' },
   '/network':        { title: 'Arquitectura de Red',         subtitle: 'Flujo perimetral, enrutamiento VPC y recursos internos' },
   '/services':       { title: 'Catálogo de Servicios AWS',   subtitle: 'Componentes principales y especificaciones técnicas' },
+  '/cloud-auditoria': { title: 'Cloud Auditoría',            subtitle: 'Auditoría de ciberseguridad OWASP y diseño de arquitectura AWS' },
+  '/cloudauditoria':  { title: 'Cloud Auditoría',            subtitle: 'Auditoría de ciberseguridad OWASP y diseño de arquitectura AWS' },
   '/auditorio':      { title: 'Auditorio & Monitoreo',       subtitle: 'Resumen ejecutivo, geografía y mapa en vivo, y bitácora de eventos' },
 };
 

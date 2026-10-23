@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Info,
   Search,
@@ -95,9 +96,18 @@ export const Services: React.FC = () => {
               filtra por categoría para encontrar lo que necesitas.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-[#16A34A] shrink-0">
-            <ShieldCheck className="w-4 h-4" />
-            <span>{AWS_SERVICES.length} Servicios · 5 Categorías</span>
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <Link
+              to="/cloud-auditoria"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-all shadow-sm shadow-blue-500/20"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Auditoría Cloud (URL / ZIP)</span>
+            </Link>
+            <div className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-[#16A34A]">
+              <ShieldCheck className="w-4 h-4" />
+              <span>{AWS_SERVICES.length} Servicios · 5 Categorías</span>
+            </div>
           </div>
         </div>
       </div>

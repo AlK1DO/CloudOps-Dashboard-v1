@@ -10,7 +10,8 @@ import {
   Layers, 
   Cloud,
   X,
-  Compass
+  Compass,
+  ShieldAlert
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ const navItems = [
   { name: 'Seguridad e IAM', path: '/security', icon: ShieldCheck },
   { name: 'Arquitectura de Red', path: '/network', icon: Network },
   { name: 'Servicios AWS', path: '/services', icon: Layers },
+  { name: 'Cloud Auditoría', path: '/cloud-auditoria', icon: ShieldAlert },
   { name: 'Auditorio', path: '/auditorio', icon: Compass },
 ];
 

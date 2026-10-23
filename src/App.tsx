@@ -16,6 +16,7 @@ import { Infrastructure } from './pages/Infrastructure';
 import { Security } from './pages/Security';
 import { Network } from './pages/Network';
 import { Services } from './pages/Services';
+import { CloudAuditoriaPage } from './pages/CloudAuditoriaPage';
 import { Auditorio } from './pages/Auditorio';
 
 function App() {
@@ -42,6 +43,8 @@ function App() {
                         <Route path="/security" element={<Security />} />
                         <Route path="/network" element={<Network />} />
                         <Route path="/services" element={<Services />} />
+                        <Route path="/cloud-auditoria" element={<CloudAuditoriaPage />} />
+                        <Route path="/cloudauditoria" element={<CloudAuditoriaPage />} />
                         <Route path="/auditorio" element={<Auditorio />} />
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                       </Routes>
